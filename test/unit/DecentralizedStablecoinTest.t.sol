@@ -80,6 +80,7 @@ contract DecentralizedStablecoinTest is Test {
 
         vm.startPrank(decentralizedStablecoin.owner());
         decentralizedStablecoin.mint(address(mockERC), 1 ether);
+        vm.stopPrank();
 
         uint256 endingBalance = decentralizedStablecoin.balanceOf(address(mockERC));
 
@@ -102,5 +103,76 @@ contract DecentralizedStablecoinTest is Test {
         assertLe(startingSpenderBalance, endingSpenderBalance);
         assert(endingSpenderBalance > startingSpenderBalance);
         assertEq(endingSpenderBalance, 1 ether);
+    }
+
+    function testShouldFailIfMintingToZeroAddress() public {
+        vm.startPrank(decentralizedStablecoin.owner());
+        vm.expectRevert(DecentralizedStablecoin.DecentralizedStablecoin__AddressCannotBeZero.selector);
+        decentralizedStablecoin.mint(address(0), 1 ether);
+        vm.stopPrank();
+    }
+
+    function testShouldFailIfMintingZeroAmount() public {
+        vm.startPrank(decentralizedStablecoin.owner());
+        vm.expectRevert(DecentralizedStablecoin.DecentralizedStablecoin__AmountMustBeMoreThanZero.selector);
+        decentralizedStablecoin.mint(USER, 0);
+        vm.stopPrank();
+    }
+
+    modifier skipExec(address _dscHolder) {
+        if (_dscHolder == address(0)) {
+            return;
+        }
+
+        _;
+    }
+
+    function testShouldAllowingMintingToAnyoneExceptZeroAddress(address _tokenHolder) public skipExec(_tokenHolder) {
+        vm.startPrank(decentralizedStablecoin.owner());
+        bool minted = decentralizedStablecoin.mint(_tokenHolder, 1 ether);
+        vm.stopPrank();
+
+        assertEq(minted, true);
+    }
+
+    function testShouldRevertIfBurnAmountIsZero() public {
+        vm.startPrank(decentralizedStablecoin.owner());
+        vm.expectRevert(DecentralizedStablecoin.DecentralizedStablecoin__AmountMustBeMoreThanZero.selector);
+        decentralizedStablecoin.burn(0);
+        vm.stopPrank();
+    }
+
+    function testShouldRevertIfBurningAmountExceedsBalance() public {
+        vm.startPrank(decentralizedStablecoin.owner());
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DecentralizedStablecoin.DecentralizedStablecoin__BurnAmountExceedBalance.selector,
+                decentralizedStablecoin.balanceOf(decentralizedStablecoin.owner())
+            )
+        );
+        decentralizedStablecoin.burn(1 ether);
+        vm.stopPrank();
+    }
+
+    function testShouldRevertBurnIfSignerOrCallerIsNotTheOwner() public {
+        vm.startPrank(decentralizedStablecoin.owner());
+        decentralizedStablecoin.mint(USER, 1 ether);
+        vm.stopPrank();
+
+        vm.startPrank(USER);
+        vm.expectRevert("Ownable: caller is not the owner");
+        decentralizedStablecoin.burn(1 ether);
+        vm.stopPrank();
+    }
+
+    function testBurnsDSCTokensCorrectly() public {
+        vm.startPrank(decentralizedStablecoin.owner());
+        decentralizedStablecoin.mint(USER, 1 ether);
+        decentralizedStablecoin.transferOwnership(USER);
+        vm.stopPrank();
+
+        vm.startPrank(USER);
+        decentralizedStablecoin.burn(1 ether);
+        vm.stopPrank();
     }
 }
