@@ -25,7 +25,11 @@ contract HelperConfig is Script {
     uint256 private constant INITIAL_BALANCE = 1000e8;
 
     constructor() {
-        if (block.chainid == 11155111) {} else {}
+        if (block.chainid == 11155111) {
+            activeNetworkConfig = getSepoliaNetworkConfig();
+        } else {
+            activeNetworkConfig = getOrCreateAnvilNetworkConfig();
+        }
     }
 
     function getSepoliaNetworkConfig() public view returns (NetworkConfig memory) {
