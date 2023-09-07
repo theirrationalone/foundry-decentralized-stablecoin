@@ -52,7 +52,7 @@ contract DecentralizedStablecoinTest is Test {
 
         // Owner(USER) is performing tx.
         // owner(USER) gives approval to `mockERC`(spender) to spend tokens balance on his/her/its behalf.
-        // if spencder tries to spend more token than error will occur and tell `spend amount exceeds balance`.abi
+        // if spencder tries to spend more token In effect, An error will occur and tell `spend amount exceeds balance`.
         vm.startPrank(USER);
         dummyToken.approve(address(mockERC), 1000e8);
         vm.stopPrank();

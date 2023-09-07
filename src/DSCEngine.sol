@@ -203,8 +203,8 @@ contract DSCEngine is ReentrancyGuard {
         }
     }
 
-    function _calculateHealthFactor(uint256 _totalDSCMinted, uint256 _collateralUsdValue)
-        internal
+    function calculateHealthFactor(uint256 _totalDSCMinted, uint256 _collateralUsdValue)
+        public
         pure
         returns (uint256)
     {
@@ -221,7 +221,7 @@ contract DSCEngine is ReentrancyGuard {
     function _healthFactor(address _user) private view returns (uint256) {
         (uint256 totalDSCMinted, uint256 collateralUsdValue) = _getAccountInformation(_user);
 
-        return _calculateHealthFactor(totalDSCMinted, collateralUsdValue);
+        return calculateHealthFactor(totalDSCMinted, collateralUsdValue);
     }
 
     function _getAccountInformation(address _user)
@@ -236,20 +236,16 @@ contract DSCEngine is ReentrancyGuard {
     function getAccountCollateralData(address _user) public view returns (uint256 totalCollateralUsdValue) {
         for (uint256 i = 0; i < s_collateralTokens.length; i++) {
             uint256 collateralAmount = s_collateralDeposited[_user][s_collateralTokens[i]];
-            totalCollateralUsdValue += _getUsdValue(collateralAmount, s_collateralTokens[i]);
+            totalCollateralUsdValue += getUsdValue(collateralAmount, s_collateralTokens[i]);
         }
 
         return totalCollateralUsdValue;
     }
 
-    function _getUsdValue(uint256 _collateralAmount, address _collateralTokenAddress) private view returns (uint256) {
+    function getUsdValue(uint256 _collateralAmount, address _collateralTokenAddress) public view returns (uint256) {
         (, int256 latestPrice,,,) = AggregatorV3Interface(s_priceFeeds[_collateralTokenAddress]).latestRoundData();
 
         return ((uint256(latestPrice) * EXTRA_PRECISION) * _collateralAmount) / PRECISION;
-    }
-
-    function getUsdValue(uint256 _collateralAmount, address _collateralTokenAddress) external view returns (uint256) {
-        return _getUsdValue(_collateralAmount, _collateralTokenAddress);
     }
 
     function getAccountInformation(address _user) external view returns (uint256, uint256) {
