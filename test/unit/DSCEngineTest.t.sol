@@ -545,4 +545,24 @@ contract DSCEngineTest is Test {
         assertEq(burnOnBehalfOf, USER);
         assertEq(burnAmount, MAX_DSC_MINT_AMOUNT);
     }
+
+    function testRedeemCollateralForDSCTwoTxsCorrectly() public depositCollateral dscMint {
+        uint256 startingDepositedCollateralAmount = dscEngine.getDepositedCollateralBalance(USER, weth);
+        uint256 startingMintedDSCAmount = dscEngine.getMintedDSC(USER);
+
+        vm.startPrank(USER);
+        dsc.approve(address(dscEngine), MAX_DSC_MINT_AMOUNT);
+        dscEngine.redeemCollateralForDSC(weth, AMOUNT_COLLATERAL, MAX_DSC_MINT_AMOUNT);
+        vm.stopPrank();
+
+        uint256 endingDepositedCollateralAmount = dscEngine.getDepositedCollateralBalance(USER, weth);
+        uint256 endingMintedDSCAmount = dscEngine.getMintedDSC(USER);
+        uint256 healthFactor = dscEngine.getHealthFactor(USER);
+
+        assertEq(startingDepositedCollateralAmount, AMOUNT_COLLATERAL);
+        assertEq(startingMintedDSCAmount, MAX_DSC_MINT_AMOUNT);
+        assertEq(endingDepositedCollateralAmount, 0);
+        assertEq(endingMintedDSCAmount, 0);
+        assertEq(healthFactor, type(uint256).max);
+    }
 }
