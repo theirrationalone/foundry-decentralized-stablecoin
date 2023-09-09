@@ -15,6 +15,7 @@ import {FakeERC20V1} from "../mocks/FakeERC20V1.m.sol";
 import {FakeERC20V2} from "../mocks/FakeERC20V2.m.sol";
 import {FakeDSCV1} from "../mocks/FakeDSCV1.m.sol";
 import {FakeDSCV2} from "../mocks/FakeDSCV2.m.sol";
+import {FakeDSCV3} from "../mocks/FakeDSCV3.m.sol";
 
 contract DSCEngineTest is Test {
     DSCEngine dscEngine;
@@ -695,5 +696,25 @@ contract DSCEngineTest is Test {
         vm.stopPrank();
     }
 
-    function testLiquidatorLiquidatesUnderCollateralizedUserButNotImprovesHealth() public depositCollateral dscMint {}
+    function testLiquidatorLiquidatesUnderCollateralizedUserButNotImprovesHealth() public {
+        fakePriceFeedArray = [wethUsdPriceFeed, wbtcUsdPriceFeed];
+        fakeTokenArray = [weth, wbtc];
+
+        FakeDSCV3 fakeDSC = new FakeDSCV3(wethUsdPriceFeed);
+
+        DSCEngine fakeDSCEngine = new DSCEngine(fakePriceFeedArray, fakeTokenArray, address(fakeDSC));
+
+        vm.startPrank(USER);
+        ERC20Mock(weth).approve(address(fakeDSCEngine), AMOUNT_COLLATERAL);
+        fakeDSCEngine.depositCollateral(weth, AMOUNT_COLLATERAL);
+        fakeDSCEngine.mintDSC(MAX_DSC_MINT_AMOUNT);
+        vm.stopPrank();
+
+        MockV3Aggregator(wethUsdPriceFeed).updateAnswer(1500e8);
+
+        vm.startPrank(LIQUIDATOR);
+        vm.expectRevert(DSCEngine.DSCEngine__HealthfactorNoImproved.selector);
+        fakeDSCEngine.liquidate(USER, weth, 100 ether); // we want to some remaining dsc amount to not touch dsc == 0 condition.
+        vm.stopPrank();
+    }
 }
