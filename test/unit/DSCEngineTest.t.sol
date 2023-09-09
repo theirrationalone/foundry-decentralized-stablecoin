@@ -25,8 +25,9 @@ contract DSCEngineTest is Test {
     address wbtc;
 
     address USER = makeAddr("USER");
+    address LIQUIDATOR = makeAddr("LIQUIDATOR");
     uint256 private constant AMOUNT_COLLATERAL = 10 ether;
-    uint256 private constant STARTING_DSC_BALANCE = 10 ether;
+    uint256 private constant STARTING_WETH_BALANCE = 10 ether;
     uint256 private constant MAX_DSC_MINT_AMOUNT = 10000 ether;
 
     address[] fakePriceFeedArray;
@@ -46,7 +47,8 @@ contract DSCEngineTest is Test {
         (dscEngine, dsc, config) = deployer.run();
 
         (wethUsdPriceFeed, wbtcUsdPriceFeed, weth, wbtc,) = config.activeNetworkConfig();
-        ERC20Mock(weth).mint(USER, STARTING_DSC_BALANCE);
+        ERC20Mock(weth).mint(USER, STARTING_WETH_BALANCE);
+        ERC20Mock(weth).mint(LIQUIDATOR, STARTING_WETH_BALANCE);
     }
 
     function testDSCAddressIsCorrect() public {
@@ -266,6 +268,16 @@ contract DSCEngineTest is Test {
         dscEngine.mintDSC(MAX_DSC_MINT_AMOUNT);
         vm.stopPrank();
         _;
+    }
+
+    function testCalculatesCollateralAmountInUsdCorrectly() public depositCollateral {
+        (, int256 latestPrice,,,) = MockV3Aggregator(wethUsdPriceFeed).latestRoundData();
+        uint256 extraPrecision = dscEngine.getExtraPrecision();
+        uint256 precision = dscEngine.getPrecision();
+        uint256 expectedCalcUsdValue = (AMOUNT_COLLATERAL * (uint256(latestPrice) * extraPrecision)) / precision;
+        uint256 actualCalcUsdValue = dscEngine.getAccountCollateralData(USER);
+
+        assertEq(actualCalcUsdValue, expectedCalcUsdValue);
     }
 
     function testCanMintMaxDSCWithBreakingHealthFactorSuccessfully() public depositCollateral {
@@ -565,4 +577,123 @@ contract DSCEngineTest is Test {
         assertEq(endingMintedDSCAmount, 0);
         assertEq(healthFactor, type(uint256).max);
     }
+
+    function testCannotLiquidateForZeroDebts() public {
+        vm.startPrank(USER);
+        vm.expectRevert(DSCEngine.DSCEngine__MustBeMoreThanZero.selector);
+        dscEngine.liquidate(USER, weth, 0);
+        vm.stopPrank();
+    }
+
+    function testCannotLiquidateForInvalidWethToken() public {
+        ERC20Mock invalidToken = new ERC20Mock("INVALID_TOKEN", "INVTK", address(6), 1000e8);
+        vm.startPrank(USER);
+        vm.expectRevert(
+            abi.encodeWithSelector(DSCEngine.DSCEngine__OnlyValidTokenAllowed.selector, address(invalidToken))
+        );
+        dscEngine.liquidate(USER, address(invalidToken), MAX_DSC_MINT_AMOUNT);
+        vm.stopPrank();
+    }
+
+    function testLiquidatorCanLiquidateAnyUnderCollateralizedUser() public depositCollateral dscMint {
+        ERC20Mock(weth).mint(LIQUIDATOR, 10 ether);
+
+        vm.startPrank(LIQUIDATOR);
+        ERC20Mock(weth).approve(address(dscEngine), 20 ether);
+        dscEngine.depositCollateral(weth, 20 ether);
+        dscEngine.mintDSC(MAX_DSC_MINT_AMOUNT);
+        vm.stopPrank();
+
+        MockV3Aggregator(wethUsdPriceFeed).updateAnswer(1500e8);
+
+        uint256 userTokenAmountFromUsd = dscEngine.getTokenAmountFromUsd(weth, dscEngine.getMintedDSC(USER));
+
+        uint256 liquidationBonus =
+            (userTokenAmountFromUsd * dscEngine.getLiquidationBonus()) / dscEngine.getLiquidationPrecision();
+
+        uint256 totalEarningOfLiquidator = userTokenAmountFromUsd + liquidationBonus;
+
+        uint256 expectedRemainingDepositedCollateralsOfUser =
+            dscEngine.getDepositedCollateralBalance(USER, weth) - totalEarningOfLiquidator;
+
+        uint256 expectedRemainingDSCBalanceOfLiquidator = dsc.balanceOf(LIQUIDATOR) - dscEngine.getMintedDSC(USER);
+
+        uint256 currentHealthFactorOfUser = dscEngine.getHealthFactor(USER);
+        uint256 currentHealthFactorOfLiquidator = dscEngine.getHealthFactor(LIQUIDATOR);
+
+        console.log("Before liquidation:");
+        console.log("deposited collateral user:", dscEngine.getDepositedCollateralBalance(USER, weth));
+        console.log("deposited collateral liquidator:", dscEngine.getDepositedCollateralBalance(LIQUIDATOR, weth));
+        console.log("minted dsc user:", dscEngine.getMintedDSC(USER));
+        console.log("minted dsc liquidator:", dscEngine.getMintedDSC(LIQUIDATOR));
+        console.log("weth token balance user:", ERC20Mock(weth).balanceOf(USER));
+        console.log("weth token balance liquidator:", ERC20Mock(weth).balanceOf(LIQUIDATOR));
+        console.log("dsc balance user:", dsc.balanceOf(USER));
+        console.log("dsc balance liquidator:", dsc.balanceOf(LIQUIDATOR));
+
+        assert(currentHealthFactorOfUser < 1e18);
+        assert(currentHealthFactorOfLiquidator >= 1e18);
+
+        vm.startPrank(LIQUIDATOR);
+        dsc.approve(address(dscEngine), dscEngine.getMintedDSC(USER));
+        dscEngine.liquidate(USER, weth, dscEngine.getMintedDSC(USER));
+        vm.stopPrank();
+
+        uint256 actualRemainingDepositedCollateralsOfUser = dscEngine.getDepositedCollateralBalance(USER, weth);
+        uint256 actualRemainingDSCBalanceOfLiquidator = dsc.balanceOf(LIQUIDATOR);
+        uint256 actualEarningOfLiquidator = ERC20Mock(weth).balanceOf(LIQUIDATOR);
+
+        uint256 updatedHealthFactorOfUser = dscEngine.getHealthFactor(USER);
+        uint256 updatedHealthFactorOfLiquidator = dscEngine.getHealthFactor(LIQUIDATOR);
+
+        console.log("After liquidation:");
+        console.log("deposited collateral user:", dscEngine.getDepositedCollateralBalance(USER, weth));
+        console.log("deposited collateral liquidator:", dscEngine.getDepositedCollateralBalance(LIQUIDATOR, weth));
+        console.log("minted dsc user:", dscEngine.getMintedDSC(USER));
+        console.log("minted dsc liquidator:", dscEngine.getMintedDSC(LIQUIDATOR));
+        console.log("weth token balance user:", ERC20Mock(weth).balanceOf(USER));
+        console.log("weth token balance liquidator:", ERC20Mock(weth).balanceOf(LIQUIDATOR));
+        console.log("dsc balance user:", dsc.balanceOf(USER));
+        console.log("dsc balance liquidator:", dsc.balanceOf(LIQUIDATOR));
+
+        assertEq(actualRemainingDepositedCollateralsOfUser, expectedRemainingDepositedCollateralsOfUser);
+        assertEq(actualRemainingDSCBalanceOfLiquidator, expectedRemainingDSCBalanceOfLiquidator);
+        assertEq(actualEarningOfLiquidator, totalEarningOfLiquidator);
+        assert(updatedHealthFactorOfLiquidator >= 1e18);
+        assert(updatedHealthFactorOfUser >= 1e18);
+
+        // 2000 -> 1500 <- prices raised.
+        // -> 10 * 1000 -> 10000 <- total collateral value in usd
+        // -> (10000 * 50) / 100 -> 5000 <- 50% of available collateral therefore it's the threshold
+        // 5000 / 10000 -> 5 / 10 -> 0.5 - health factor
+
+        // 10000 / 1500 -> 100 / 15 -> 6.667 <- eth to pay.
+        // (6.667 * 10) / 100 -> 0.667 -> bonus, almost $1000 earning
+        // 7.3336667 -> total to redeem
+    }
+
+    function testCannotLiquidateIfHealthFactorIsOk() public depositCollateral dscMint {
+        uint256 extraFeedPrecision = dscEngine.getExtraPrecision();
+        uint256 precision = dscEngine.getPrecision();
+        uint256 depositedCollateralAmount = dscEngine.getDepositedCollateralBalance(USER, weth);
+        uint256 mintedDSCAmount = dscEngine.getMintedDSC(USER);
+
+        (, int256 latestPrice,,,) = MockV3Aggregator(wethUsdPriceFeed).latestRoundData();
+        uint256 collateralUsdValue =
+            ((uint256(latestPrice) * extraFeedPrecision) * depositedCollateralAmount) / precision;
+
+        uint256 liquidationThreshold = dscEngine.getLiquidationThreshold();
+        uint256 liquidationPrecision = dscEngine.getLiquidationPrecision();
+
+        uint256 collateralAdjustedforThreshold = (collateralUsdValue * liquidationThreshold) / liquidationPrecision;
+
+        uint256 expectedHealthFactor = (collateralAdjustedforThreshold * precision) / mintedDSCAmount;
+
+        vm.startPrank(address(5)); // any user.
+        vm.expectRevert(abi.encodeWithSelector(DSCEngine.DSCEngine__HealthFactorIsOk.selector, expectedHealthFactor));
+        dscEngine.liquidate(USER, weth, mintedDSCAmount);
+        vm.stopPrank();
+    }
+
+    function testLiquidatorLiquidatesUnderCollateralizedUserButNotImprovesHealth() public depositCollateral dscMint {}
 }
