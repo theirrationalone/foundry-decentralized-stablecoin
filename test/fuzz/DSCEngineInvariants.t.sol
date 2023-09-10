@@ -22,15 +22,13 @@ contract DSCEngineInvariants is StdInvariant, Test {
         HelperConfig config;
         DeployDSCEngine deployer = new DeployDSCEngine();
         (dscEngine, dsc, config) = deployer.run();
-
         (,, weth, wbtc,) = config.activeNetworkConfig();
 
         DSCEngineHandler dscEngineHandler = new DSCEngineHandler(address(dscEngine), address (dsc));
-
         targetContract(address(dscEngineHandler));
     }
 
-    function invariant__totalSupplyCanNeverBeGreaterThanTotalTokenAmounts() public view {
+    function invariant_totalSupplyCanNeverBeGreaterThanTotalTokenAmounts() public view {
         uint256 totalSupply = dsc.totalSupply();
         uint256 wethTotalBalance = ERC20Mock(weth).balanceOf(address(dscEngine));
         uint256 wbtcTotalBalance = ERC20Mock(wbtc).balanceOf(address(dscEngine));
