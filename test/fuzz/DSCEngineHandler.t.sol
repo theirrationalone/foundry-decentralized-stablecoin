@@ -155,17 +155,6 @@ contract DSCEngineHandler is Test {
 
         if (debtAmountToCover <= 0) return;
 
-        uint256 debtAmountValueInEth = i_dscEngine.getTokenAmountFromUsd(collateralToken, debtAmountToCover);
-        uint256 depositableCollateralsToMaintainLiquidatorHealthFactor = debtAmountValueInEth * 2;
-
-        vm.startPrank(msg.sender);
-        ERC20Mock(collateralToken).mint(msg.sender, depositableCollateralsToMaintainLiquidatorHealthFactor);
-        ERC20Mock(collateralToken).approve(address(i_dscEngine), depositableCollateralsToMaintainLiquidatorHealthFactor);
-        i_dscEngine.depositCollateral(collateralToken, depositableCollateralsToMaintainLiquidatorHealthFactor);
-        i_dscEngine.mintDSC(debtAmountToCover);
-        vm.stopPrank();
-
-        MockV3Aggregator(i_dscEngine.getTokenAssociatedPriceFeedAddress(collateralToken)).updateAnswer(500e8);
         uint256 currentHealthFactor = i_dscEngine.getHealthFactor(validUnderCollateralizedUser);
 
         if (currentHealthFactor >= i_dscEngine.getMinimumHealthFactor()) return;
@@ -174,12 +163,85 @@ contract DSCEngineHandler is Test {
         i_dsc.approve(address(i_dscEngine), debtAmountToCover);
         i_dscEngine.liquidate(validUnderCollateralizedUser, collateralToken, debtAmountToCover);
         vm.stopPrank();
+    }
 
-        if (collateralToken == wethAddress) {
-            MockV3Aggregator(i_dscEngine.getTokenAssociatedPriceFeedAddress(collateralToken)).updateAnswer(2000e8);
-        } else {
-            MockV3Aggregator(i_dscEngine.getTokenAssociatedPriceFeedAddress(collateralToken)).updateAnswer(1000e8);
+    function depositCollateralAndMintDSC(
+        uint256 _collateralTokenSeed,
+        int256 _collateralAmountSeed,
+        uint256 _dscAmountSeed
+    ) public {
+        int256 collateralAmount = bound(_collateralAmountSeed, 0, MAX_COLLATERAL_AMOUNT);
+
+        if (collateralAmount == 0) return;
+
+        address collateralToken = _getValidCollateralToken(_collateralTokenSeed);
+
+        (uint256 totalDSCMintedAmount, uint256 totalDepositedCollateralInUsd) =
+            i_dscEngine.getAccountInformation(msg.sender);
+
+        uint256 collateralAmountInUsd = i_dscEngine.getUsdValue(uint256(collateralAmount), collateralToken);
+        uint256 validDSCMintingAmount =
+            ((collateralAmountInUsd + totalDepositedCollateralInUsd) / 2) - totalDSCMintedAmount;
+
+        uint256 dscAmountToMint = bound(_dscAmountSeed, 0, validDSCMintingAmount);
+
+        if (dscAmountToMint <= 0) return;
+
+        vm.startPrank(msg.sender);
+        ERC20Mock(collateralToken).mint(msg.sender, uint256(collateralAmount));
+        ERC20Mock(collateralToken).approve(address(i_dscEngine), uint256(collateralAmount));
+        i_dscEngine.depositCollateralAndMintDSC(collateralToken, uint256(collateralAmount), dscAmountToMint);
+        vm.stopPrank();
+
+        bool alreadyDeposited = false;
+        bool alreadyMinted = false;
+
+        for (uint256 i = 0; i < s_collateralDepositedUsers.length; i++) {
+            if (msg.sender == s_collateralDepositedUsers[i]) {
+                alreadyDeposited = true;
+                return;
+            }
         }
+
+        for (uint256 i = 0; i < s_dscMintedUsers.length; i++) {
+            if (msg.sender == s_dscMintedUsers[i]) {
+                alreadyMinted = true;
+                return;
+            }
+        }
+
+        if (!alreadyDeposited) {
+            s_collateralDepositedUsers.push(msg.sender);
+        }
+
+        if (!alreadyMinted) {
+            s_dscMintedUsers.push(msg.sender);
+        }
+    }
+
+    function redeemCollateralForDSC(
+        uint256 _collateralTokenSeed,
+        uint256 _amountToRedeemSeed,
+        uint256 _amountToBurnSeed
+    ) public {
+        address collateralToken = _getValidCollateralToken(_collateralTokenSeed);
+
+        uint256 depositedCollateralAmount = i_dscEngine.getDepositedCollateralBalance(msg.sender, collateralToken);
+
+        uint256 maxCollateralRedeem = bound(_amountToRedeemSeed, 0, depositedCollateralAmount);
+
+        if (maxCollateralRedeem <= 0) return;
+
+        uint256 mintedDSC = i_dscEngine.getMintedDSC(msg.sender);
+
+        uint256 amountToBurn = bound(_amountToBurnSeed, 0, mintedDSC);
+
+        if (amountToBurn <= 0) return;
+
+        vm.startPrank(msg.sender);
+        i_dsc.approve(address(i_dscEngine), amountToBurn);
+        i_dscEngine.redeemCollateralForDSC(collateralToken, maxCollateralRedeem, amountToBurn);
+        vm.stopPrank();
     }
 
     function _getValidCollateralToken(uint256 _tokenSeed) private view returns (address) {

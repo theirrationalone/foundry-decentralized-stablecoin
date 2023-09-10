@@ -39,5 +39,24 @@ contract DSCEngineInvariants is StdInvariant, Test {
         assert((wethTotalBalanceInUsd + wbtcTotalBalanceInUsd) >= totalSupply);
     }
 
-    function invariant__helperGetterFunctionAlwaysPass() public {}
+    function invariant__helperGetterFunctionAlwaysPass() public view {
+        dscEngine.getAccountCollateralData(msg.sender);
+        dscEngine.getAccountInformation(msg.sender);
+        dscEngine.getCollateralTokens();
+        dscEngine.getCollateralTokensLength();
+        dscEngine.getDepositedCollateralBalance(msg.sender, weth);
+        dscEngine.getDepositedCollateralBalance(msg.sender, wbtc);
+        dscEngine.getDSCAddress();
+        dscEngine.getExtraPrecision();
+        dscEngine.getHealthFactor(msg.sender);
+        dscEngine.getLiquidationBonus();
+        dscEngine.getLiquidationPrecision();
+        dscEngine.getLiquidationThreshold();
+        dscEngine.getMinimumHealthFactor();
+        dscEngine.getMintedDSC(msg.sender);
+        dscEngine.getPrecision();
+        dscEngine.getTokenAmountFromUsd(weth, 1000 ether);
+        dscEngine.getTokenAssociatedPriceFeedAddress(weth);
+        dscEngine.getUsdValue(10 ether, weth);
+    }
 }
