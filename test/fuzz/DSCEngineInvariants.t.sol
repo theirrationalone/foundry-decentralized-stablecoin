@@ -39,7 +39,7 @@ contract DSCEngineInvariants is StdInvariant, Test {
         assert((wethTotalBalanceInUsd + wbtcTotalBalanceInUsd) >= totalSupply);
     }
 
-    function invariant__helperGetterFunctionAlwaysPass() public view {
+    function invariant_helperGetterFunctionAlwaysPass() public view {
         dscEngine.getAccountCollateralData(msg.sender);
         dscEngine.getAccountInformation(msg.sender);
         dscEngine.getCollateralTokens();
