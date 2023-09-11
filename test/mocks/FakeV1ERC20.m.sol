@@ -2,9 +2,9 @@
 
 pragma solidity ^0.8.18;
 
-contract FakeERC20V2 {
+contract FakeV1ERC20 {
     function transferFrom(address, address, uint256) public pure returns (bool) {
-        return true;
+        return false;
     }
 
     function transfer(address, uint256) public pure returns (bool) {

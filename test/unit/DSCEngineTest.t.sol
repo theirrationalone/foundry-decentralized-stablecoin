@@ -11,8 +11,8 @@ import {DSCEngine} from "../../src/DSCEngine.sol";
 import {DecentralizedStablecoin} from "../../src/DecentralizedStablecoin.sol";
 import {DeployDSCEngine} from "../../script/DeployDSCEngine.s.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
-import {FakeERC20V1} from "../mocks/FakeERC20V1.m.sol";
-import {FakeERC20V2} from "../mocks/FakeERC20V2.m.sol";
+import {FakeV1ERC20} from "../mocks/FakeV1ERC20.m.sol";
+import {FakeV2ERC20} from "../mocks/FakeV2ERC20.m.sol";
 import {FakeDSCV1} from "../mocks/FakeDSCV1.m.sol";
 import {FakeDSCV2} from "../mocks/FakeDSCV2.m.sol";
 import {FakeDSCV3} from "../mocks/FakeDSCV3.m.sol";
@@ -216,7 +216,7 @@ contract DSCEngineTest is Test {
     }
 
     function testShouldRevertDepositCollateralOnInvalidTransfersFake() public {
-        FakeERC20V1 fakeERC20 = new FakeERC20V1();
+        FakeV1ERC20 fakeERC20 = new FakeV1ERC20();
         fakePriceFeedArray = [address(fakeERC20)];
         fakeTokenArray = [address(fakeERC20)];
         DSCEngine newDSCEngine = new DSCEngine(fakePriceFeedArray, fakeTokenArray, address(dsc));
@@ -421,7 +421,7 @@ contract DSCEngineTest is Test {
     }
 
     function testRedeemCollateralTransferFailsOnUnsuccessfulTransfer() public {
-        FakeERC20V2 fakeToken = new FakeERC20V2();
+        FakeV2ERC20 fakeToken = new FakeV2ERC20();
 
         fakeTokenArray = [address(fakeToken)];
         fakePriceFeedArray = [wethUsdPriceFeed];
