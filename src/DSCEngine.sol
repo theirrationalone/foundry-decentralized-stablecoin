@@ -8,6 +8,7 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/Ag
 import {console} from "forge-std/console.sol";
 
 import {DecentralizedStablecoin} from "./DecentralizedStablecoin.sol";
+import {OracleLib} from "./Libraries/OracleLib.sol";
 
 contract DSCEngine is ReentrancyGuard {
     error DSCEngine__PriceFeedAddressesAndTokenAddressesListMustBeSameLength();
@@ -18,6 +19,8 @@ contract DSCEngine is ReentrancyGuard {
     error DSCEngine__HealthfactorIsBroken(uint256 healthFactor);
     error DSCEngine__HealthFactorIsOk(uint256 healthFactor);
     error DSCEngine__HealthfactorNoImproved();
+
+    using OracleLib for AggregatorV3Interface;
 
     DecentralizedStablecoin private immutable i_dsc;
     mapping(address tokenAddress => address priceFeedAddress) private s_priceFeeds;
@@ -192,7 +195,8 @@ contract DSCEngine is ReentrancyGuard {
         view
         returns (uint256)
     {
-        (, int256 latestPrice,,,) = AggregatorV3Interface(s_priceFeeds[_collateralTokenAddress]).latestRoundData();
+        (, int256 latestPrice,,,) =
+            AggregatorV3Interface(s_priceFeeds[_collateralTokenAddress]).staleCheckLatestRoundData();
 
         return ((_amountInWei * PRECISION) / (uint256(latestPrice) * EXTRA_PRECISION));
     }
@@ -246,7 +250,8 @@ contract DSCEngine is ReentrancyGuard {
     }
 
     function getUsdValue(uint256 _collateralAmount, address _collateralTokenAddress) public view returns (uint256) {
-        (, int256 latestPrice,,,) = AggregatorV3Interface(s_priceFeeds[_collateralTokenAddress]).latestRoundData();
+        (, int256 latestPrice,,,) =
+            AggregatorV3Interface(s_priceFeeds[_collateralTokenAddress]).staleCheckLatestRoundData();
 
         return ((uint256(latestPrice) * EXTRA_PRECISION) * _collateralAmount) / PRECISION;
     }
