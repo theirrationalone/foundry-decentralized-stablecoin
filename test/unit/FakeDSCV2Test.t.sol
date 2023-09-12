@@ -13,11 +13,13 @@ contract FakeDSCV2Test is Test {
         fakeDscV2 = new FakeDSCV2();
     }
 
-    function testFakeDSCV2WorksWell() public {
+    function testFakeDSCV2MintFunctionIsWorkingWell() public {
         bool successMint = fakeDscV2.mint(address(1), 1);
-        bool successTransferFrom = fakeDscV2.transferFrom(address(1), address(2), 1);
-
         assertEq(successMint, true);
+    }
+
+    function testFakeDSCV2TransferFromFunctionIsWorkingWell() public {
+        bool successTransferFrom = fakeDscV2.transferFrom(address(1), address(2), 1);
         assertEq(successTransferFrom, false);
     }
 }

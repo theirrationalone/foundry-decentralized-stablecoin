@@ -19,17 +19,21 @@ contract FakeDSCV3Test is Test {
         fakeDscV3 = new FakeDSCV3(priceFeedAddress);
     }
 
-    function testFakeDSCV3WorksWell() public {
-        (, int256 startingEthPrice,,,) = MockV3Aggregator(priceFeedAddress).latestRoundData();
-
+    function testFakeDSCV3MintFunctionIsWorkingAsExpected() public {
         bool successMint = fakeDscV3.mint(address(1), 1);
-        bool successTransferFrom = fakeDscV3.transferFrom(address(1), address(2), 1);
-        fakeDscV3.burn(1);
+        assertEq(successMint, true);
+    }
 
+    function testFakeDSCV3transferFromFunctionIsWorkingAsExpected() public {
+        bool successTransferFrom = fakeDscV3.transferFrom(address(1), address(2), 1);
+        assertEq(successTransferFrom, true);
+    }
+
+    function testFakeDSCV3BurnFunctionIsWorkingAsExpected() public {
+        (, int256 startingEthPrice,,,) = MockV3Aggregator(priceFeedAddress).latestRoundData();
+        fakeDscV3.burn(1);
         (, int256 endingEthPrice,,,) = MockV3Aggregator(priceFeedAddress).latestRoundData();
 
-        assertEq(successMint, true);
-        assertEq(successTransferFrom, true);
         assertEq(startingEthPrice, 2000e8);
         assertEq(endingEthPrice, 0);
         assert(startingEthPrice > endingEthPrice);

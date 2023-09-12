@@ -2,8 +2,11 @@
 
 pragma solidity ^0.8.18;
 
-contract FakeDSCV1 {
+import {Script} from "forge-std/Script.sol";
+
+contract FakeDSCV1 is Script {
     function mint(address, uint256) external pure returns (bool) {
-        return false;
+        bool boolean = false;
+        return boolean;
     }
 }

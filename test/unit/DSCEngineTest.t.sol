@@ -4,8 +4,10 @@ pragma solidity ^0.8.18;
 
 import {Test, console} from "forge-std/Test.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/ERC20Mock.sol";
+import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {Vm} from "forge-std/Vm.sol";
 
+import {OracleLib} from "../../src/Libraries/OracleLib.sol";
 import {MockV3Aggregator} from "../mocks/MockV3Aggregator.m.sol";
 import {DSCEngine} from "../../src/DSCEngine.sol";
 import {DecentralizedStablecoin} from "../../src/DecentralizedStablecoin.sol";
@@ -716,5 +718,16 @@ contract DSCEngineTest is Test {
         vm.expectRevert(DSCEngine.DSCEngine__HealthfactorNoImproved.selector);
         fakeDSCEngine.liquidate(USER, weth, 100 ether); // we want to some remaining dsc amount to not touch dsc == 0 condition.
         vm.stopPrank();
+    }
+
+    function testOracleLibStaleCheckRevertsIfPriceStaled() public {
+        // MockV3Aggregator priceFeed = MockV3Aggregator(wethUsdPriceFeed);
+
+        // (uint80 _roundId, int256 _answer, uint256 _startedAt, uint256 _updatedAt, uint80 answeredInRound) =
+        //     priceFeed.latestRoundData();
+        // priceFeed.updateRoundData(_roundId, 4000e8, 4 hours, 1);
+        vm.warp(block.timestamp + 1 hours + 1);
+        vm.expectRevert(OracleLib.OracleLib__StalePrice.selector);
+        dscEngine.getUsdValue(10 ether, weth);
     }
 }

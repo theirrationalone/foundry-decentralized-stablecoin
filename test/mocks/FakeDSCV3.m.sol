@@ -4,7 +4,6 @@ pragma solidity ^0.8.18;
 
 import {Script} from "forge-std/Script.sol";
 import {MockV3Aggregator} from "./MockV3Aggregator.m.sol";
-import {DSCEngine} from "../../src/DSCEngine.sol";
 
 contract FakeDSCV3 is Script {
     MockV3Aggregator private immutable i_priceFeed;

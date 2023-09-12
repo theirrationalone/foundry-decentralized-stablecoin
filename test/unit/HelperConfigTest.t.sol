@@ -50,5 +50,31 @@ contract HelperConfigTest is Test {
         assert(anotherWbtcPriceFeedAddress != anvilConfig.wbtcUsdPriceFeed);
         assert(anotherWeth != anvilConfig.weth);
         assert(anotherWbtc != anvilConfig.wbtc);
+
+        vm.chainId(5);
+        HelperConfig anotherOneConfig = new HelperConfig();
+        (
+            address anotherOneWethPriceFeedAddress,
+            address anotherOneWbtcPriceFeedAddress,
+            address anotherOneWeth,
+            address anotherOneWbtc,
+        ) = anotherOneConfig.activeNetworkConfig();
+
+        assertEq(anotherOneWethPriceFeedAddress, address(0));
+        assertEq(anotherOneWbtcPriceFeedAddress, address(0));
+        assertEq(anotherOneWeth, address(0));
+        assertEq(anotherOneWbtc, address(0));
+
+        HelperConfig.NetworkConfig memory anotherOneAnvilconfig = anotherOneConfig.getOrCreateAnvilNetworkConfig();
+        HelperConfig.NetworkConfig memory anotherOneSepoliaConfig = anotherOneConfig.getSepoliaNetworkConfig();
+
+        assert(anotherOneAnvilconfig.wethUsdPriceFeed != anotherOneWethPriceFeedAddress);
+        assert(anotherOneAnvilconfig.wbtcUsdPriceFeed != anotherOneWbtcPriceFeedAddress);
+        assert(anotherOneAnvilconfig.weth != anotherOneWeth);
+        assert(anotherOneAnvilconfig.wbtc != anotherOneWbtc);
+        assert(anotherOneSepoliaConfig.wethUsdPriceFeed != anotherOneWethPriceFeedAddress);
+        assert(anotherOneSepoliaConfig.wbtcUsdPriceFeed != anotherOneWbtcPriceFeedAddress);
+        assert(anotherOneSepoliaConfig.weth != anotherOneWeth);
+        assert(anotherOneSepoliaConfig.wbtc != anotherOneWbtc);
     }
 }

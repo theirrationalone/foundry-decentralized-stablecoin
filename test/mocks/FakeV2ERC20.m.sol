@@ -8,6 +8,7 @@ contract FakeV2ERC20 {
     }
 
     function transfer(address, uint256) public pure returns (bool) {
-        return false;
+        bool boolean = false;
+        return boolean;
     }
 }
